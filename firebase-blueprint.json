@@ -1,0 +1,26 @@
+{
+  "entities": {
+    "Meeting": {
+      "title": "Meeting",
+      "description": "Represents a synthesized meeting intelligence record with AI minutes and actions.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique record identifier" },
+        "userId": { "type": "string", "description": "The Firebase User UID of the meeting creator" },
+        "title": { "type": "string", "description": "Title of the meeting" },
+        "date": { "type": "string", "description": "Date of meeting creation" },
+        "duration": { "type": "integer", "description": "Duration of the discussion in seconds" },
+        "platform": { "type": "string", "description": "Meeting platform source" },
+        "template": { "type": "string", "description": "Analysis template structure applied" },
+        "status": { "type": "string", "enum": ["processing", "completed", "failed"], "description": "Meeting processing stage" }
+      },
+      "required": ["id", "userId", "title", "date", "duration", "platform", "template", "status"]
+    }
+  },
+  "firestore": {
+    "/meetings/{meetingId}": {
+      "schema": "Meeting",
+      "description": "The central repository containing user meeting logs, transcripts and AI-generated minutes."
+    }
+  }
+}

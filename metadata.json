@@ -1,0 +1,11 @@
+{
+  "name": "Remix: Rez AI",
+  "description": "Universal AI-powered meeting summarization and reporting platform",
+  "requestFramePermissions": [
+    "microphone",
+    "display-capture"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

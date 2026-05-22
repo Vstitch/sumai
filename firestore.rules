@@ -1,0 +1,90 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global safety net catches any stray or unconfigured paths
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper checking primitive authentications
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Checks that user verified their email address to prevent temp email abuse
+    function isVerified() {
+      return request.auth.token.email_verified == true;
+    }
+
+    // Check if user owns the document they are accessing
+    function isOwner(data) {
+      return data != null && data.userId == request.auth.uid;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Meeting validation function
+    function isValidMeeting(data) {
+      return data != null
+        && data.id is string
+        && data.id.size() <= 128
+        && data.userId == request.auth.uid
+        && data.title is string
+        && data.title.size() >= 1
+        && data.title.size() <= 200
+        && data.date is string
+        && data.duration is int
+        && data.duration >= 0
+        && data.platform is string
+        && data.platform.size() >= 1
+        && data.platform.size() <= 50
+        && data.template is string
+        && data.template.size() >= 1
+        && data.template.size() <= 50
+        && data.status is string
+        && (data.status == 'processing' || data.status == 'completed' || data.status == 'failed');
+    }
+
+    match /meetings/{meetingId} {
+      allow get: if isSignedIn() && isOwner(existing());
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      
+      allow create: if isSignedIn()
+        && isVerified()
+        && isValidId(meetingId)
+        && isValidMeeting(incoming())
+        && meetingId == incoming().id;
+        
+      allow update: if isSignedIn()
+        && isVerified()
+        && isValidId(meetingId)
+        && isOwner(existing())
+        && (
+          // System updating processing state or attaching reports
+          (existing().status == 'processing' && isValidMeeting(incoming()))
+          ||
+          // User editing metadata files when not locked / client-side edits
+          (existing().status == "processing" && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'template']))
+          ||
+          // Toggling individual action items even after completion
+          (incoming().diff(existing()).affectedKeys().hasOnly(['actionItems']))
+        );
+        
+      allow delete: if isSignedIn()
+        && isVerified()
+        && isValidId(meetingId)
+        && isOwner(existing());
+    }
+  }
+}

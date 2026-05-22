@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>REZ AI Companion</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      width: 365px;
+      margin: 0;
+      padding: 16px;
+      background-color: #F8F7F4;
+      color: #1A1A1A;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-b: 1px solid #E5E5E1;
+      padding-bottom: 8px;
+    }
+    .logo {
+      background-color: #1A1A1A;
+      color: #FFFFFF;
+      font-family: Georgia, serif;
+      font-weight: bold;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+    .title {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .tabs {
+      display: flex;
+      border-bottom: 2px solid #E5E5E1;
+      margin-top: 4px;
+    }
+    .tab {
+      flex: 1;
+      text-align: center;
+      padding: 8px 0;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #71716A;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    .tab.active {
+      color: #0D9488;
+      border-bottom-color: #0D9488;
+    }
+    .view {
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .view.active {
+      display: flex;
+    }
+    .hint {
+      font-size: 11px;
+      color: #71716A;
+      line-height: 1.4;
+      background-color: #FFFFFF;
+      border: 1px solid #E5E5E1;
+      border-radius: 8px;
+      padding: 8px;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    label {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #71716A;
+      letter-spacing: 0.05em;
+    }
+    input {
+      background-color: #FFFFFF;
+      border: 1px solid #E5E5E1;
+      border-radius: 8px;
+      padding: 8px;
+      font-size: 12px;
+      color: #1A1A1A;
+      outline: none;
+    }
+    input:focus {
+      border-color: #1A1A1A;
+    }
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    button {
+      background-color: #1A1A1A;
+      color: #FFFFFF;
+      border: none;
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    button:hover {
+      background-color: #000000;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .btn-secondary {
+      background-color: #FFFFFF;
+      color: #1A1A1A;
+      border: 1px solid #E5E5E1;
+    }
+    .btn-secondary:hover {
+      background-color: #F8F7F4;
+    }
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: #E5E5E1;
+    }
+    .dot.active {
+      background-color: #10B981;
+      box-shadow: 0 0 6px #10B981;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0% { opacity: 0.3; }
+      50% { opacity: 1; }
+      100% { opacity: 0.3; }
+    }
+    .event-card {
+      background-color: #FFFFFF;
+      border: 1px solid #E5E5E1;
+      border-radius: 10px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      transition: all 0.2s;
+    }
+    .event-card.active {
+      border-color: #0D9488;
+      background-color: #F0FDF4;
+    }
+    .event-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 6px;
+    }
+    .event-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: #1A1A1A;
+      line-height: 1.35;
+    }
+    .event-source {
+      font-size: 8px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 1px 4px;
+      border-radius: 4px;
+      background-color: #EFF6FF;
+      color: #1D4ED8;
+      border: 1px solid #DBEAFE;
+    }
+    .event-source.outlook {
+      background-color: #F0FDF4;
+      color: #15803D;
+      border-color: #DCFCE7;
+    }
+    .event-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      font-size: 10px;
+      color: #71716A;
+    }
+    .event-time {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .event-platform {
+      font-weight: 600;
+    }
+    .event-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 4px;
+    }
+    .btn-mini {
+      flex: 1;
+      padding: 5px 8px;
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      border-radius: 6px;
+      border: 1px solid #E5E5E1;
+      background: #FFFFFF;
+      color: #71716A;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      transition: all 0.2s;
+    }
+    .btn-mini:hover:not(:disabled) {
+      border-color: #1A1A1A;
+      color: #1A1A1A;
+    }
+    .btn-mini:disabled {
+      opacity: 0.5;
+    }
+    .btn-mini-primary {
+      background: #0D9488;
+      color: #FFFFFF;
+      border-color: #0D9488;
+    }
+    .btn-mini-primary:hover:not(:disabled) {
+      background: #0F766E;
+      border-color: #0F766E;
+      color: #FFFFFF;
+    }
+    a {
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">R</div>
+      <div class="title">REZ AI Companion</div>
+    </div>
+
+    <!-- TABS NAVIGATION -->
+    <div class="tabs">
+      <div class="tab active" id="tab-record">Meeting Ingest</div>
+      <div class="tab" id="tab-calendar">Calendar Sync</div>
+    </div>
+
+    <!-- VIEW RECORD -->
+    <div id="view-record" class="view active">
+      <div class="hint">
+        Run your Google Meet. Click <strong>Connect & Record</strong> below, grab the correct tab stream, and synchronize live meeting transcriptions to your account securely.
+      </div>
+
+      <div class="form-group">
+        <label for="serverUrl">Workspace URL</label>
+        <input type="text" id="serverUrl" placeholder="https://..." value="">
+      </div>
+
+      <div class="form-group">
+        <label for="userId">Firebase User UID</label>
+        <input type="text" id="userId" placeholder="Enter your User UID (copy from profile)">
+      </div>
+
+      <div class="form-group">
+        <label for="meetingTitle">Meeting Title</label>
+        <input type="text" id="meetingTitle" placeholder="e.g. Google Meet Client sync" value="Google Meet Dialogue">
+      </div>
+
+      <div class="status-badge">
+        <span id="statusDot" class="dot"></span>
+        <span id="statusText">Disconnected</span>
+      </div>
+
+      <div class="actions">
+        <button id="startBtn">Connect & Record Tab</button>
+        <button id="stopBtn" class="btn-secondary" disabled>Stop & Sync Minutes</button>
+      </div>
+    </div>
+
+    <!-- VIEW CALENDAR -->
+    <div id="view-calendar" class="view">
+      <div class="hint">
+        Display upcoming meetings from your linked workspace. Easily trigger the Rez AI Bot to auto-join.
+      </div>
+
+      <div class="calendar-status" style="background-color: #FFFFFF; border: 1px solid #E5E5E1; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 4px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 11px; font-weight: 700; color: #1A1A1A;">Workspace Connection</span>
+          <span id="calConnBadge" style="font-size: 8px; text-transform: uppercase; font-weight: 700; padding: 1.5px 5px; border-radius: 99px; background: #FEF3C7; color: #D97706; border: 1px solid #FDE68A;">Checking...</span>
+        </div>
+        <div id="calConnUser" style="font-size: 10px; color: #71716A; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-top: 2px;">
+          Retreiving feed settings...
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+        <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #71716A; letter-spacing: 0.05em;">Upcoming Meetings</span>
+        <span id="refreshCalBtn" style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #0D9488; cursor: pointer; display: flex; align-items: center; gap: 3px;">
+          Refresh Feed
+        </span>
+      </div>
+
+      <div id="eventsList" style="display: flex; flex-direction: column; gap: 8px; max-height: 195px; overflow-y: auto;">
+        <!-- Dynamic meeting cards loaded from local database -->
+      </div>
+    </div>
+
+    <div class="actions" style="margin-top: 4px; border-t: 1px solid #E5E5E1; padding-top: 8px;">
+      <button id="openWorkspaceBtn" class="btn-secondary">Open REZ AI Workspace</button>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
