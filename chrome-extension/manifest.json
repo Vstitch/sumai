@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "REZ AI Meeting Companion",
+  "version": "1.0.0",
+  "description": "Capture real-time Google Meet stream screens and audio, synchronizing directly with REZ AI Workspace.",
+  "permissions": [
+    "activeTab",
+    "tabCapture",
+    "desktopCapture",
+    "storage",
+    "sidePanel"
+  ],
+  "host_permissions": [
+    "*://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "popup.html"
+  },
+  "action": {
+    "default_title": "REZ AI Companion"
+  }
+}

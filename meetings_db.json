@@ -1,21 +1,70 @@
 [
   {
-    "id": "meet_e20oiyp7l",
-    "userId": "anonymous",
-    "title": "ghu",
-    "date": "2026-05-25T09:09:49.220Z",
+    "id": "meet_oguus5eim",
+    "userId": "1ZlQFdInBLdmFynwaAaWelXeLnu2",
+    "title": "Google Meet Dialogue",
+    "date": "2026-05-25T11:46:53.518Z",
     "duration": 12,
-    "platform": "recording",
-    "template": "scrum",
-    "status": "failed",
-    "transcript": [],
-    "actionItems": [],
-    "audioUrl": "/media_uploads/meeting_meet_e20oiyp7l.webm",
-    "videoUrl": "/media_uploads/meeting_meet_e20oiyp7l.webm",
+    "platform": "google-meet",
+    "template": "client",
+    "status": "completed",
+    "transcript": [
+      {
+        "speaker": "John",
+        "start": 0,
+        "end": 5,
+        "text": "Alright, I have got the REZ AI Meeting Companion extension running on Chrome now."
+      },
+      {
+        "speaker": "Sarah",
+        "start": 5,
+        "end": 12,
+        "text": "Great, let us make sure it is recording the Google Meet stream correctly and sync the minutes."
+      }
+    ],
+    "actionItems": [
+      {
+        "id": "act_meet_oguus5eim_0",
+        "meetingId": "meet_oguus5eim",
+        "owner": "John",
+        "task": "Test the connection between the Chrome extension and the local backend server.",
+        "deadline": "By Wednesday",
+        "status": "pending"
+      },
+      {
+        "id": "act_meet_oguus5eim_1",
+        "meetingId": "meet_oguus5eim",
+        "owner": "Sarah",
+        "task": "Prepare a test Google Meet session to verify real-time transcription accuracy.",
+        "deadline": "By Thursday",
+        "status": "pending"
+      }
+    ],
+    "audioUrl": "/media_uploads/meeting_meet_oguus5eim.webm",
+    "videoUrl": "/media_uploads/meeting_meet_oguus5eim.webm",
     "hasAudio": true,
     "hasVideo": true,
     "spokenLanguage": "auto",
-    "translated": true,
-    "error": "Voice transcription failure: {\"error\":{\"code\":403,\"message\":\"Your API key was reported as leaked. Please use another API key.\",\"status\":\"PERMISSION_DENIED\"}}. If the recording was empty or corrupt, please try another audio sample."
+    "translated": false,
+    "report": {
+      "summary": "The team initiated a quick sync to test the REZ AI Meeting Companion Chrome extension. John confirmed the extension is active and running, while Sarah suggested verifying the Google Meet stream recording and ensuring the minutes sync properly.",
+      "decisions": [
+        "Use REZ AI Meeting Companion for capturing Google Meet dialogues going forward.",
+        "Verify stream recording functionality before the next major client call."
+      ],
+      "risks": [
+        "Potential connection drops or sync delays if the local server is unstable."
+      ],
+      "nextMeeting": "Next week Tuesday - Full team trial of REZ AI during weekly sync.",
+      "templateSpecific": {
+        "Requirements": "Must have Chrome extension installed, active backend server, and valid API credentials.",
+        "Sprint Updates": "Successfully integrated the initial Chrome extension UI with the Google Meet stream capture interface."
+      }
+    },
+    "followUp": {
+      "email": "Subject: REZ AI Meeting Companion - Setup and Testing Sync. Hi Team, We successfully initiated the setup and testing of the REZ AI Meeting Companion Chrome extension today. John has the extension running, and we will be verifying the stream recording and minutes sync functionality this week. Best regards, Sarah",
+      "slack": "*REZ AI Meeting Companion Setup Update* - *John* has successfully installed and launched the REZ AI Chrome extension. - *Sarah* and John will run a test Google Meet session to verify stream recording and minutes sync. - Goal is to have this fully operational for next week's team sync!",
+      "recap": "We successfully launched and tested the REZ AI Meeting Companion Chrome extension, setting up action items to verify stream recording and backend sync before our next team-wide meeting."
+    }
   }
 ]
