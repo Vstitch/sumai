@@ -1,1 +1,21 @@
-[]
+[
+  {
+    "id": "meet_e20oiyp7l",
+    "userId": "anonymous",
+    "title": "ghu",
+    "date": "2026-05-25T09:09:49.220Z",
+    "duration": 12,
+    "platform": "recording",
+    "template": "scrum",
+    "status": "failed",
+    "transcript": [],
+    "actionItems": [],
+    "audioUrl": "/media_uploads/meeting_meet_e20oiyp7l.webm",
+    "videoUrl": "/media_uploads/meeting_meet_e20oiyp7l.webm",
+    "hasAudio": true,
+    "hasVideo": true,
+    "spokenLanguage": "auto",
+    "translated": true,
+    "error": "Voice transcription failure: {\"error\":{\"code\":403,\"message\":\"Your API key was reported as leaked. Please use another API key.\",\"status\":\"PERMISSION_DENIED\"}}. If the recording was empty or corrupt, please try another audio sample."
+  }
+]
