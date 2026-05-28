@@ -13,6 +13,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   let audioChunks = [];
   let stream = null;
   let isRecording = false;
+  let micStream = null;
+  let audioCtx = null;
+  let recorderMimeType = "audio/webm";
 
   // Retrieve parameters from storage
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
@@ -55,11 +58,63 @@ document.addEventListener('DOMContentLoaded', async () => {
         audio: true
       });
 
-      if (stream.getAudioTracks().length === 0) {
+      // Try to acquire microphone to merge client voices and speaker voice
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (micErr) {
+        console.warn("Microphone access declined, only recording display audio feedback:", micErr);
+      }
+
+      let mixedStream = null;
+      
+      if (micStream && (stream.getAudioTracks().length > 0 || micStream.getAudioTracks().length > 0)) {
+        try {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          audioCtx = new AudioContextClass();
+          const dest = audioCtx.createMediaStreamDestination();
+
+          let connected = false;
+          if (stream.getAudioTracks().length > 0) {
+            const displaySource = audioCtx.createMediaStreamSource(stream);
+            displaySource.connect(dest);
+            connected = true;
+          }
+          if (micStream.getAudioTracks().length > 0) {
+            const micSource = audioCtx.createMediaStreamSource(micStream);
+            micSource.connect(dest);
+            connected = true;
+          }
+
+          if (connected) {
+            mixedStream = dest.stream;
+          }
+        } catch (e) {
+          console.warn("Web Audio mixing failed, falling back to display stream audio:", e);
+        }
+      }
+
+      if (!mixedStream) {
+        const audioTracks = [];
+        if (stream.getAudioTracks().length > 0) {
+          audioTracks.push(stream.getAudioTracks()[0]);
+        } else if (micStream && micStream.getAudioTracks().length > 0) {
+          audioTracks.push(micStream.getAudioTracks()[0]);
+        }
+        mixedStream = new MediaStream(audioTracks);
+      }
+
+      if (mixedStream.getAudioTracks().length === 0) {
         alert("Warning: No audio track shared. Please check the 'Share tab audio' tick box next time.");
       }
 
-      mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+      let options = { mimeType: 'audio/webm' };
+      recorderMimeType = 'audio/webm';
+      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+        options = { mimeType: 'audio/webm;codecs=opus' };
+        recorderMimeType = 'audio/webm;codecs=opus';
+      }
+
+      mediaRecorder = new MediaRecorder(mixedStream, options);
       audioChunks = [];
 
       mediaRecorder.ondataavailable = (event) => {
@@ -72,18 +127,65 @@ document.addEventListener('DOMContentLoaded', async () => {
         await uploadRecording();
       };
 
-      // Handle stream end (e.g. user clicks Chrome's "Stop sharing" ribbon)
-      stream.getVideoTracks()[0].onended = () => {
-        if (isRecording) {
-          stopRecording();
-        }
-      };
+      if (stream.getVideoTracks().length > 0) {
+        stream.getVideoTracks()[0].onended = () => {
+          if (isRecording) {
+            stopRecording();
+          }
+        };
+      }
 
       mediaRecorder.start(100);
       isRecording = true;
       actionBtn.textContent = "Stop & Sync Minutes";
       statusText.textContent = "Recording Meet Stream Live...";
       descEl.textContent = "Do not close this tab. Keep the meeting screen active.";
+
+      // Setup Live Waveform Visualizer
+      if (audioCtx && mixedStream) {
+        const analyser = audioCtx.createAnalyser();
+        const source = audioCtx.createMediaStreamSource(mixedStream);
+        source.connect(analyser);
+        analyser.fftSize = 64;
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+
+        const canvas = document.getElementById('waveform');
+        const canvasCtx = canvas.getContext('2d');
+        
+        function draw() {
+          if (!isRecording) {
+            canvasCtx.fillStyle = '#F8F7F4';
+            canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+            canvasCtx.beginPath();
+            canvasCtx.moveTo(0, canvas.height / 2);
+            canvasCtx.lineTo(canvas.width, canvas.height / 2);
+            canvasCtx.strokeStyle = '#E5E5E1';
+            canvasCtx.stroke();
+            return;
+          }
+          requestAnimationFrame(draw);
+          
+          analyser.getByteFrequencyData(dataArray);
+          
+          canvasCtx.fillStyle = '#F8F7F4';
+          canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+          
+          const barWidth = (canvas.width / bufferLength) * 1.5;
+          let barHeight;
+          let x = 0;
+          
+          for (let i = 0; i < bufferLength; i++) {
+            barHeight = dataArray[i] / 2.5;
+            
+            canvasCtx.fillStyle = `rgba(13, 148, 136, ${barHeight/128 + 0.15})`;
+            canvasCtx.fillRect(x, (canvas.height - barHeight) / 2, barWidth - 2, barHeight);
+            
+            x += barWidth;
+          }
+        }
+        draw();
+      }
     } catch (err) {
       console.error("Stream capture failed:", err);
       statusText.textContent = "Failed";
@@ -99,6 +201,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     isRecording = false;
     actionBtn.disabled = true;
     actionBtn.textContent = "Uploading...";
+
+    if (micStream) {
+      micStream.getTracks().forEach(track => track.stop());
+      micStream = null;
+    }
+    if (audioCtx) {
+      try {
+        audioCtx.close();
+      } catch (e) {}
+      audioCtx = null;
+    }
   }
 
   async function uploadRecording() {
@@ -106,7 +219,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     statusDot.className = "dot";
 
     try {
-      const audioBlob = new Blob(audioChunks, { type: 'video/webm' });
+      const audioBlob = new Blob(audioChunks, { type: recorderMimeType });
       const base64Audio = await blobToBase64(audioBlob);
 
       statusText.textContent = "Uploading to server...";
@@ -122,7 +235,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           platform: "google-meet",
           template: "client",
           base64Audio: base64Audio,
-          fileType: "video/webm"
+          fileType: recorderMimeType
         })
       });
 

@@ -13,7 +13,10 @@ import AuthScreen from './components/AuthScreen';
 import CalendarSyncCenter from './components/CalendarSyncCenter';
 import { auth } from './firebase';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
-import { EXT_MANIFEST, EXT_HTML, EXT_JS } from './extension_assets';
+import { 
+  EXT_MANIFEST, EXT_BACKGROUND, EXT_HTML, EXT_JS, EXT_RECORDER_HTML, EXT_RECORDER_JS 
+} from './extension_assets';
+import { createStoreZip } from './zipHelper';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -26,7 +29,7 @@ export default function App() {
   // Extension Center
   const [showExtensionCenter, setShowExtensionCenter] = useState(false);
   const [showCalendarCenter, setShowCalendarCenter] = useState(false);
-  const [activeExtTab, setActiveExtTab] = useState<'manifest' | 'html' | 'js'>('manifest');
+  const [activeExtTab, setActiveExtTab] = useState<'manifest' | 'background' | 'html' | 'js' | 'rec_html' | 'rec_js'>('manifest');
   const [copiedFile, setCopiedFile] = useState<string | null>(null);
   const [copiedUid, setCopiedUid] = useState(false);
 
@@ -200,10 +203,36 @@ export default function App() {
 
   // Trigger downloading of all three extension companion files
   const handleDownloadFullPack = () => {
-    handleDownloadFile('manifest.json', EXT_MANIFEST);
-    handleDownloadFile('popup.html', EXT_HTML);
-    handleDownloadFile('popup.js', EXT_JS);
-    alert("Extension files downloaded!\n\n1. Place 'manifest.json', 'popup.html', and 'popup.js' inside a folder.\n2. Open standard 'chrome://extensions'.\n3. Switch on 'Developer mode'.\n4. Select 'Load unpacked' and choose your folder.");
+    try {
+      const zipBlob = createStoreZip([
+        { name: 'manifest.json', content: EXT_MANIFEST },
+        { name: 'background.js', content: EXT_BACKGROUND },
+        { name: 'popup.html', content: EXT_HTML },
+        { name: 'popup.js', content: EXT_JS },
+        { name: 'recorder.html', content: EXT_RECORDER_HTML },
+        { name: 'recorder.js', content: EXT_RECORDER_JS }
+      ]);
+      
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'rez-companion-extension.zip';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      alert("REZ AI Companion Extension downloaded successfully as 'rez-companion-extension.zip'!\n\n1. Unzip the file to a folder (e.g. 'rez-companion').\n2. Open 'chrome://extensions' in Chrome.\n3. Turn on 'Developer mode' (toggle in the top-right corner).\n4. Click 'Load unpacked' (button in the top-left corner) and select your extracted folder.");
+    } catch (err: any) {
+      console.error("ZIP packaging failed:", err);
+      alert("ZIP packaging failed, falling back to multi-file download...");
+      handleDownloadFile('manifest.json', EXT_MANIFEST);
+      handleDownloadFile('background.js', EXT_BACKGROUND);
+      handleDownloadFile('popup.html', EXT_HTML);
+      handleDownloadFile('popup.js', EXT_JS);
+      handleDownloadFile('recorder.html', EXT_RECORDER_HTML);
+      handleDownloadFile('recorder.js', EXT_RECORDER_JS);
+    }
   };
 
   // Log Out Handler
@@ -373,7 +402,7 @@ export default function App() {
                   <Download className="w-4 h-4" />
                   <span>Download Extension Files (Pack)</span>
                 </button>
-                <div className="text-[10px] text-[#71716A] text-center">Downloads manifest.json, popup.html and popup.js</div>
+                <div className="text-[10px] text-[#71716A] text-center">Downloads manifest.json, background.js, popup.html, popup.js, recorder.html and recorder.js</div>
               </div>
             </div>
 
@@ -432,12 +461,18 @@ export default function App() {
               <div className="flex items-center justify-between border-b border-[#E5E5E1] pb-2">
                 <span className="text-[10px] uppercase font-bold tracking-widest text-[#71716A]">Source Files Inspector</span>
                 
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <button
                     onClick={() => setActiveExtTab('manifest')}
                     className={`px-3 py-1 text-xs font-semibold rounded-md transition ${activeExtTab === 'manifest' ? 'bg-[#1A1A1A] text-white' : 'text-[#71716A] hover:text-[#1A1A1A]'}`}
                   >
                     manifest.json
+                  </button>
+                  <button
+                    onClick={() => setActiveExtTab('background')}
+                    className={`px-3 py-1 text-xs font-semibold rounded-md transition ${activeExtTab === 'background' ? 'bg-[#1A1A1A] text-white' : 'text-[#71716A] hover:text-[#1A1A1A]'}`}
+                  >
+                    background.js
                   </button>
                   <button
                     onClick={() => setActiveExtTab('html')}
@@ -450,6 +485,18 @@ export default function App() {
                     className={`px-3 py-1 text-xs font-semibold rounded-md transition ${activeExtTab === 'js' ? 'bg-[#1A1A1A] text-white' : 'text-[#71716A] hover:text-[#1A1A1A]'}`}
                   >
                     popup.js
+                  </button>
+                  <button
+                    onClick={() => setActiveExtTab('rec_html')}
+                    className={`px-3 py-1 text-xs font-semibold rounded-md transition ${activeExtTab === 'rec_html' ? 'bg-[#1A1A1A] text-white' : 'text-[#71716A] hover:text-[#1A1A1A]'}`}
+                  >
+                    recorder.html
+                  </button>
+                  <button
+                    onClick={() => setActiveExtTab('rec_js')}
+                    className={`px-3 py-1 text-xs font-semibold rounded-md transition ${activeExtTab === 'rec_js' ? 'bg-[#1A1A1A] text-white' : 'text-[#71716A] hover:text-[#1A1A1A]'}`}
+                  >
+                    recorder.js
                   </button>
                 </div>
               </div>
@@ -466,6 +513,22 @@ export default function App() {
                   >
                     {copiedFile === 'manifest.json' ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
                     <span>{copiedFile === 'manifest.json' ? 'Copied' : 'Copy'}</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Background Code View */}
+              {activeExtTab === 'background' && (
+                <div className="relative">
+                  <pre className="p-4 bg-[#F8F7F4] border border-[#E5E5E1] rounded-xl text-[11px] font-mono text-[#1A1A1A] overflow-x-auto max-h-[250px]">
+                    {EXT_BACKGROUND}
+                  </pre>
+                  <button
+                    onClick={() => handleCopy('background.js', EXT_BACKGROUND)}
+                    className="absolute top-3 right-3 text-xs font-medium text-[#71716A] bg-white border border-[#E5E5E1] hover:border-[#1A1A1A] px-2.5 py-1 rounded-md transition flex items-center gap-1"
+                  >
+                    {copiedFile === 'background.js' ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedFile === 'background.js' ? 'Copied' : 'Copy'}</span>
                   </button>
                 </div>
               )}
@@ -498,6 +561,38 @@ export default function App() {
                   >
                     {copiedFile === 'popup.js' ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
                     <span>{copiedFile === 'popup.js' ? 'Copied' : 'Copy'}</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Recorder HTML Code View */}
+              {activeExtTab === 'rec_html' && (
+                <div className="relative">
+                  <pre className="p-4 bg-[#F8F7F4] border border-[#E5E5E1] rounded-xl text-[11px] font-mono text-[#1A1A1A] overflow-x-auto max-h-[250px]">
+                    {EXT_RECORDER_HTML}
+                  </pre>
+                  <button
+                    onClick={() => handleCopy('recorder.html', EXT_RECORDER_HTML)}
+                    className="absolute top-3 right-3 text-xs font-medium text-[#71716A] bg-white border border-[#E5E5E1] hover:border-[#1A1A1A] px-2.5 py-1 rounded-md transition flex items-center gap-1"
+                  >
+                    {copiedFile === 'recorder.html' ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedFile === 'recorder.html' ? 'Copied' : 'Copy'}</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Recorder JS Code View */}
+              {activeExtTab === 'rec_js' && (
+                <div className="relative">
+                  <pre className="p-4 bg-[#F8F7F4] border border-[#E5E5E1] rounded-xl text-[11px] font-mono text-[#1A1A1A] overflow-x-auto max-h-[250px]">
+                    {EXT_RECORDER_JS}
+                  </pre>
+                  <button
+                    onClick={() => handleCopy('recorder.js', EXT_RECORDER_JS)}
+                    className="absolute top-3 right-3 text-xs font-medium text-[#71716A] bg-white border border-[#E5E5E1] hover:border-[#1A1A1A] px-2.5 py-1 rounded-md transition flex items-center gap-1"
+                  >
+                    {copiedFile === 'recorder.js' ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedFile === 'recorder.js' ? 'Copied' : 'Copy'}</span>
                   </button>
                 </div>
               )}

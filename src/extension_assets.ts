@@ -7,16 +7,35 @@ export const EXT_MANIFEST = `{
     "activeTab",
     "tabCapture",
     "desktopCapture",
-    "storage"
+    "storage",
+    "sidePanel"
   ],
   "host_permissions": [
     "*://*/*"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "popup.html"
+  },
   "action": {
-    "default_popup": "popup.html",
     "default_title": "REZ AI Companion"
   }
 }`;
+
+export const EXT_BACKGROUND = `// REZ AI Chrome Extension Background Service Worker
+chrome.runtime.onInstalled.addListener(() => {
+  console.log("REZ AI Meeting Companion installed.");
+});
+
+// Configure Side Panel behavior to open when clicking the toolbar extension action icon
+if (chrome.sidePanel && chrome.sidePanel.setPanelBehavior) {
+  chrome.sidePanel
+    .setPanelBehavior({ openPanelOnActionClick: true })
+    .catch((error) => console.error("Error setting panel behavior:", error));
+}
+`;
 
 export const EXT_HTML = `<!DOCTYPE html>
 <html>
@@ -26,11 +45,12 @@ export const EXT_HTML = `<!DOCTYPE html>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      width: 365px;
+      min-width: 300px;
       margin: 0;
       padding: 16px;
       background-color: #F8F7F4;
       color: #1A1A1A;
+      box-sizing: border-box;
     }
     .container {
       display: flex;
@@ -41,7 +61,7 @@ export const EXT_HTML = `<!DOCTYPE html>
       display: flex;
       align-items: center;
       gap: 8px;
-      border-b: 1px solid #E5E5E1;
+      border-bottom: 1px solid #E5E5E1;
       padding-bottom: 8px;
     }
     .logo {
@@ -358,7 +378,7 @@ export const EXT_HTML = `<!DOCTYPE html>
       </div>
     </div>
 
-    <div class="actions" style="margin-top: 4px; border-t: 1px solid #E5E5E1; padding-top: 8px;">
+    <div class="actions" style="margin-top: 4px; border-top: 1px solid #E5E5E1; padding-top: 8px;">
       <button id="openWorkspaceBtn" class="btn-secondary">Open REZ AI Workspace</button>
     </div>
   </div>
@@ -393,7 +413,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Auto detect current server URL from chrome environment or default
   let defaultUrl = window.location.origin;
   if (defaultUrl.startsWith('chrome-extension')) {
-    defaultUrl = 'https://ais-dev-ulzqq6t6p55djhpy7okx57-775350281876.asia-southeast1.run.app'; // templated fallback
+    defaultUrl = 'http://localhost:3000'; // Set default locally
   }
   serverUrlInput.value = defaultUrl;
 
@@ -450,7 +470,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const userId = userIdInput.value.trim();
 
     if (!serverUrl) {
-      eventsList.innerHTML = \\\`<div style="font-size: 11px; color:#ef4444; text-align:center; padding:15px 0;">Error: Set Workspace URL first</div>\\\`;
+      eventsList.innerHTML = \`<div style="font-size: 11px; color:#ef4444; text-align:center; padding:15px 0;">Error: Set Workspace URL first</div>\`;
       calConnBadge.textContent = "Offline";
       calConnBadge.style.background = "#FEE2E2";
       calConnBadge.style.color = "#991B1B";
@@ -463,18 +483,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     calConnBadge.style.color = "#D97706";
     calConnBadge.style.borderColor = "#FDE68A";
     
-    eventsList.innerHTML = \\\`
+    eventsList.innerHTML = \`
       <div style="font-size: 11px; color:#71716A; text-align:center; padding:20px 0;">
         <span style="font-weight: 700; color: #0D9488;">Connecting to matrix...</span>
       </div>
-    \\\`;
+    \`;
 
     try {
       let googleConnected = false;
       let googleEmail = "";
       
       try {
-        const statusRes = await fetch(\\\`\${serverUrl}/api/calendars/status\\\`);
+        const statusRes = await fetch(\`\${serverUrl}/api/calendars/status\`);
         if (statusRes.ok) {
           const statusData = await statusRes.json();
           googleConnected = statusData.googleConnected;
@@ -489,7 +509,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         calConnBadge.style.background = "#D1FAE5";
         calConnBadge.style.color = "#065F46";
         calConnBadge.style.borderColor = "#A7F3D0";
-        calConnUser.textContent = \\\`Google Account: \${googleEmail || "Active Sync"}\\\`;
+        calConnUser.textContent = \`Google Account: \${googleEmail || "Active Sync"}\`;
       } else {
         calConnBadge.textContent = "Demo / Off";
         calConnBadge.style.background = "#F3F4F6";
@@ -500,7 +520,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       let events = [];
       try {
-        const googleEvtsRes = await fetch(\\\`\${serverUrl}/api/calendars/google/events?token=\\\`);
+        const googleEvtsRes = await fetch(\`\${serverUrl}/api/calendars/google/events?token=\`);
         if (googleEvtsRes.ok) {
           const arr = await googleEvtsRes.json();
           if (Array.isArray(arr)) {
@@ -514,12 +534,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       events.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
       if (events.length === 0) {
-        eventsList.innerHTML = \\\`
+        eventsList.innerHTML = \`
           <div style="font-size: 11px; color:#71716A; text-align:center; padding:25px 0;">
             <div style="font-weight:700; color:#1A1A1A; margin-bottom:4px;">No activities indexed</div>
             No upcoming Google Calendar events. Link calendar inside user dashboard.
           </div>
-        \\\`;
+        \`;
         return;
       }
 
@@ -538,26 +558,26 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
 
       function biographyTemplate(evt, isGoogle, dateDay, dateStr) {
-        return \\\`
+        return \`
           <div class="event-header">
-            <span class="event-title">\\\${escapeHtml(evt.title)}</span>
-            <span class="event-source \\\${!isGoogle ? 'outlook' : ''}">\\\${isGoogle ? 'Google' : 'Outlook'}</span>
+            <span class="event-title">\${escapeHtml(evt.title)}</span>
+            <span class="event-source \${!isGoogle ? 'outlook' : ''}">\${isGoogle ? 'Google' : 'Outlook'}</span>
           </div>
           <div class="event-meta">
             <div class="event-time">
-              <span>\\\${dateDay}, \\\${dateStr}</span>
+              <span>\${dateDay}, \${dateStr}</span>
             </div>
-            <span class="event-platform" style="color: \\\${evt.platform === 'google_meet' ? '#0D9488' : '#71716A'}">
-              \\\${evt.platform === 'google_meet' ? 'Google Meet' : 'Teams / Web'}
+            <span class="event-platform" style="color: \${evt.platform === 'google_meet' ? '#0D9488' : '#71716A'}">
+              \${evt.platform === 'google_meet' ? 'Google Meet' : 'Teams / Web'}
             </span>
           </div>
           <div class="event-actions">
-            \\\${evt.joinUrl ? \\\`<button class="btn-mini btn-join-room" data-url="\\\${escapeHtml(evt.joinUrl)}">Join Room</button>\\\` : \\\`<span style="font-size: 9px; color:#71716A; padding: 4px 0;">No Join URL</span>\\\`}
-            <button class="btn-mini btn-mini-primary btn-trigger-bot" data-title="\\\${escapeHtml(evt.title)}" data-platform="\\\${escapeHtml(evt.platform)}" data-joinurl="\\\${escapeHtml(evt.joinUrl || '')}">
+            \${evt.joinUrl ? \`<button class="btn-mini btn-join-room" data-url="\${escapeHtml(evt.joinUrl)}">Join Room</button>\` : \`<span style="font-size: 9px; color:#71716A; padding: 4px 0;">No Join URL</span>\`}
+            <button class="btn-mini btn-mini-primary btn-trigger-bot" data-title="\${escapeHtml(evt.title)}" data-platform="\${escapeHtml(evt.platform)}" data-joinurl="\${escapeHtml(evt.joinUrl || '')}">
               Trigger AI Bot
             </button>
           </div>
-        \\\`;
+        \`;
       }
 
       eventsList.querySelectorAll('.btn-join-room').forEach(btn => {
@@ -580,7 +600,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           b.textContent = "Deploying...";
 
           try {
-            const simRes = await fetch(\\\`\${serverUrl}/api/meetings/simulate\\\`, {
+            const simRes = await fetch(\`\${serverUrl}/api/meetings/simulate\`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
@@ -589,7 +609,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 title: title,
                 platform: platform || "google-meet",
                 template: "scrum",
-                instructions: \\\`Triggered from Chrome Companion Bar. Join URL: \\\${joinUrl || 'None'}\\\`,
+                instructions: \`Triggered from Chrome Companion Bar. Join URL: \${joinUrl || 'None'}\`,
                 userId: userId || "anonymous"
               })
             });
@@ -599,7 +619,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               b.style.borderColor = "#10B981";
               b.style.color = "#10B981";
               b.style.background = "#ECFDF5";
-              alert(\\\`Successfully triggered REZ AI transcriptions bot to join: "\\\${title}"! Check your web workspace dashboard.\\\`);
+              alert(\`Successfully triggered REZ AI transcriptions bot to join: "\${title}"! Check your web workspace dashboard.\`);
             } else {
               throw new Error("Activation block rejected.");
             }
@@ -627,10 +647,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       .replace(/'/g, "&#039;");
   }
 
-  let mediaRecorder = null;
-  let audioChunks = [];
-  let stream = null;
-
   startBtn.addEventListener('click', async () => {
     const serverUrl = serverUrlInput.value.trim();
     const userId = userIdInput.value.trim();
@@ -640,99 +656,25 @@ document.addEventListener('DOMContentLoaded', async () => {
       alert('Workspace URL is required.');
       return;
     }
+    if (serverUrl.includes('meet.google.com') || serverUrl.includes('zoom.us') || serverUrl.includes('teams.microsoft')) {
+      alert('Invalid Workspace URL!\\n\\nDo not enter your Google Meet or huddle link here. You must enter your REZ AI Workspace URL (e.g. http://localhost:3000 when running locally, or your production backend server address).');
+      return;
+    }
     if (!userId) {
       alert('Please enter your Firebase User UID to sync minutes with your account.');
       return;
     }
 
-    saveConfig();
-
-    try {
-      statusText.textContent = "Connecting stream...";
-      
-      stream = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
-        audio: true
+    // Save config for recorder tab
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.set({ serverUrl, userId, currentMeetingTitle: title }, () => {
+        chrome.tabs.create({ url: chrome.runtime.getURL('recorder.html') });
       });
-
-      if (stream.getAudioTracks().length === 0) {
-        alert("Warning: No audio track detected. To record voices, please toggle 'Share tab audio' or select a tab when sharing your screen.");
-      }
-
-      mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
-      audioChunks = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data && event.data.size > 0) {
-          audioChunks.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        statusText.textContent = "Processing and converting audio...";
-        statusDot.className = "dot";
-
-        try {
-          const audioBlob = new Blob(audioChunks, { type: 'video/webm' });
-          const base64Audio = await blobToBase64(audioBlob);
-
-          statusText.textContent = "Uploading to server...";
-          
-          const response = await fetch(\\\`\${serverUrl}/api/meetings/upload-audio\\\`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              userId: userId,
-              title: title || \\\`Google Meet Companion — \${new Date().toLocaleTimeString()}\\\`,
-              platform: "google-meet",
-              template: "client",
-              base64Audio: base64Audio,
-              fileType: "video/webm"
-            })
-          });
-
-          if (response.ok) {
-            statusText.textContent = "Minutes Uploaded Successfully!";
-            alert("Success! The meeting audio has been synchronized and Gemini is summarizing your minutes.");
-          } else {
-            const errData = await response.json();
-            throw new Error(errData.error || "Failed server sync.");
-          }
-        } catch (uploadErr) {
-          console.error("Upload error:", uploadErr);
-          statusText.textContent = "Upload failed.";
-          alert(\\\`Failed synchronizing meeting: \${uploadErr.message}\\\`);
-        } finally {
-          if (stream) {
-            stream.getTracks().forEach(track => track.stop());
-            stream = null;
-          }
-          startBtn.disabled = false;
-          stopBtn.disabled = true;
-        }
-      };
-
-      mediaRecorder.start(100);
-      
-      statusText.textContent = "Recording Meet Stream Live...";
-      statusDot.className = "dot active";
-      
-      startBtn.disabled = true;
-      stopBtn.disabled = false;
-
-    } catch (err) {
-      console.error("Could not capture stream:", err);
-      statusText.textContent = "Capture failed.";
-      statusDot.className = "dot";
-      alert("Multimodal capture denied: " + err.message);
-    }
-  });
-
-  stopBtn.addEventListener('click', () => {
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-      mediaRecorder.stop();
+    } else {
+      localStorage.setItem('rez_server_url', serverUrl);
+      localStorage.setItem('rez_user_id', userId);
+      localStorage.setItem('rez_current_title', title);
+      window.open('recorder.html', '_blank');
     }
   });
 
@@ -742,6 +684,393 @@ document.addEventListener('DOMContentLoaded', async () => {
       window.open(serverUrl, '_blank');
     }
   });
+});`;
+
+export const EXT_RECORDER_HTML = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>REZ AI — Active Meeting Capture</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 40px;
+      background-color: #F8F7F4;
+      color: #1A1A1A;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 80vh;
+    }
+    .card {
+      background: white;
+      border: 1px solid #E5E5E1;
+      border-radius: 24px;
+      padding: 40px;
+      max-width: 480px;
+      width: 100%;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+      text-align: center;
+    }
+    .logo {
+      background-color: #1A1A1A;
+      color: #FFFFFF;
+      font-family: Georgia, serif;
+      font-weight: bold;
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      margin: 0 auto 20px auto;
+    }
+    h2 {
+      font-family: Georgia, serif;
+      font-size: 24px;
+      margin-bottom: 8px;
+      letter-spacing: -0.02em;
+    }
+    p {
+      color: #71716A;
+      font-size: 14px;
+      line-height: 1.5;
+      margin-bottom: 24px;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 6px 16px;
+      border-radius: 99px;
+      background: #F3F4F6;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: #71716A;
+    }
+    .dot.active {
+      background-color: #10B981;
+      box-shadow: 0 0 8px #10B981;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0% { opacity: 0.3; }
+      50% { opacity: 1; }
+      100% { opacity: 0.3; }
+    }
+    button {
+      background-color: #1A1A1A;
+      color: #FFFFFF;
+      border: none;
+      border-radius: 12px;
+      padding: 14px 28px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      transition: background-color 0.2s;
+    }
+    button:hover {
+      background-color: #000000;
+    }
+    button:disabled {
+      background-color: #E5E5E1;
+      color: #71716A;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">R</div>
+    <h2 id="title">REZ AI Companion</h2>
+    <p id="desc">Ready to establish a connection to your meeting stream.</p>
+    
+    <div class="status-badge">
+      <span id="statusDot" class="dot"></span>
+      <span id="statusText">Initializing...</span>
+    </div>
+
+    <!-- Active Audio Waveform Canvas Visualizer -->
+    <div style="margin: 16px 0 24px 0; height: 64px; display: flex; align-items: center; justify-content: center; border-radius: 12px; border: 1px solid #E5E5E1; overflow: hidden; background: #F8F7F4;">
+      <canvas id="waveform" width="360" height="64" style="width: 100%; height: 100%; display: block;"></canvas>
+    </div>
+    
+    <button id="actionBtn">Start Sharing Tab & Recording</button>
+  </div>
+  <script src="recorder.js"></script>
+</body>
+</html>`;
+
+export const EXT_RECORDER_JS = `document.addEventListener('DOMContentLoaded', async () => {
+  const titleEl = document.getElementById('title');
+  const descEl = document.getElementById('desc');
+  const statusDot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+  const actionBtn = document.getElementById('actionBtn');
+
+  let serverUrl = "";
+  let userId = "";
+  let meetingTitle = "";
+  
+  let mediaRecorder = null;
+  let audioChunks = [];
+  let stream = null;
+  let isRecording = false;
+  let micStream = null;
+  let audioCtx = null;
+  let recorderMimeType = "audio/webm";
+
+  // Retrieve parameters from storage
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    chrome.storage.local.get(['serverUrl', 'userId', 'currentMeetingTitle'], (data) => {
+      serverUrl = data.serverUrl || "http://localhost:3000";
+      userId = data.userId || "";
+      meetingTitle = data.currentMeetingTitle || "Google Meet Dialogue";
+      initUI();
+    });
+  } else {
+    serverUrl = localStorage.getItem('rez_server_url') || "http://localhost:3000";
+    userId = localStorage.getItem('rez_user_id') || "";
+    meetingTitle = localStorage.getItem('rez_current_title') || "Google Meet Dialogue";
+    initUI();
+  }
+
+  function initUI() {
+    titleEl.textContent = meetingTitle;
+    descEl.textContent = \`Syncing to local workspace at \${serverUrl}\`;
+    statusText.textContent = "Ready to connect";
+    statusDot.className = "dot";
+    actionBtn.textContent = "Start Sharing Tab & Recording";
+  }
+
+  actionBtn.addEventListener('click', async () => {
+    if (!isRecording) {
+      await startRecording();
+    } else {
+      stopRecording();
+    }
+  });
+
+  async function startRecording() {
+    try {
+      statusText.textContent = "Awaiting screen selection...";
+      statusDot.className = "dot active";
+      
+      stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: true
+      });
+
+      // Try to acquire microphone to merge client voices and speaker voice
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (micErr) {
+        console.warn("Microphone access declined, only recording display audio feedback:", micErr);
+      }
+
+      let mixedStream = null;
+      
+      if (micStream && (stream.getAudioTracks().length > 0 || micStream.getAudioTracks().length > 0)) {
+        try {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          audioCtx = new AudioContextClass();
+          const dest = audioCtx.createMediaStreamDestination();
+
+          let connected = false;
+          if (stream.getAudioTracks().length > 0) {
+            const displaySource = audioCtx.createMediaStreamSource(stream);
+            displaySource.connect(dest);
+            connected = true;
+          }
+          if (micStream.getAudioTracks().length > 0) {
+            const micSource = audioCtx.createMediaStreamSource(micStream);
+            micSource.connect(dest);
+            connected = true;
+          }
+
+          if (connected) {
+            mixedStream = dest.stream;
+          }
+        } catch (e) {
+          console.warn("Web Audio mixing failed, falling back to display stream audio:", e);
+        }
+      }
+
+      if (!mixedStream) {
+        const audioTracks = [];
+        if (stream.getAudioTracks().length > 0) {
+          audioTracks.push(stream.getAudioTracks()[0]);
+        } else if (micStream && micStream.getAudioTracks().length > 0) {
+          audioTracks.push(micStream.getAudioTracks()[0]);
+        }
+        mixedStream = new MediaStream(audioTracks);
+      }
+
+      if (mixedStream.getAudioTracks().length === 0) {
+        alert("Warning: No audio track shared. Please check the 'Share tab audio' tick box next time.");
+      }
+
+      let options = { mimeType: 'audio/webm' };
+      recorderMimeType = 'audio/webm';
+      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+        options = { mimeType: 'audio/webm;codecs=opus' };
+        recorderMimeType = 'audio/webm;codecs=opus';
+      }
+
+      mediaRecorder = new MediaRecorder(mixedStream, options);
+      audioChunks = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          audioChunks.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        await uploadRecording();
+      };
+
+      if (stream.getVideoTracks().length > 0) {
+        stream.getVideoTracks()[0].onended = () => {
+          if (isRecording) {
+            stopRecording();
+          }
+        };
+      }
+
+      mediaRecorder.start(100);
+      isRecording = true;
+      actionBtn.textContent = "Stop & Sync Minutes";
+      statusText.textContent = "Recording Meet Stream Live...";
+      descEl.textContent = "Do not close this tab. Keep the meeting screen active.";
+
+      // Setup Live Waveform Visualizer
+      if (audioCtx && mixedStream) {
+        const analyser = audioCtx.createAnalyser();
+        const source = audioCtx.createMediaStreamSource(mixedStream);
+        source.connect(analyser);
+        analyser.fftSize = 64;
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+
+        const canvas = document.getElementById('waveform');
+        const canvasCtx = canvas.getContext('2d');
+        
+        function draw() {
+          if (!isRecording) {
+            canvasCtx.fillStyle = '#F8F7F4';
+            canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+            canvasCtx.beginPath();
+            canvasCtx.moveTo(0, canvas.height / 2);
+            canvasCtx.lineTo(canvas.width, canvas.height / 2);
+            canvasCtx.strokeStyle = '#E5E5E1';
+            canvasCtx.stroke();
+            return;
+          }
+          requestAnimationFrame(draw);
+          
+          analyser.getByteFrequencyData(dataArray);
+          
+          canvasCtx.fillStyle = '#F8F7F4';
+          canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+          
+          const barWidth = (canvas.width / bufferLength) * 1.5;
+          let barHeight;
+          let x = 0;
+          
+          for (let i = 0; i < bufferLength; i++) {
+            barHeight = dataArray[i] / 2.5;
+            
+            canvasCtx.fillStyle = \`rgba(13, 148, 136, \${barHeight/128 + 0.15})\`;
+            canvasCtx.fillRect(x, (canvas.height - barHeight) / 2, barWidth - 2, barHeight);
+            
+            x += barWidth;
+          }
+        }
+        draw();
+      }
+    } catch (err) {
+      console.error("Stream capture failed:", err);
+      statusText.textContent = "Failed";
+      statusDot.className = "dot";
+      alert("Multimodal capture denied: " + err.message);
+    }
+  }
+
+  function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+    }
+    isRecording = false;
+    actionBtn.disabled = true;
+    actionBtn.textContent = "Uploading...";
+
+    if (micStream) {
+      micStream.getTracks().forEach(track => track.stop());
+      micStream = null;
+    }
+    if (audioCtx) {
+      try {
+        audioCtx.close();
+      } catch (e) {}
+      audioCtx = null;
+    }
+  }
+
+  async function uploadRecording() {
+    statusText.textContent = "Processing and converting audio...";
+    statusDot.className = "dot";
+
+    try {
+      const audioBlob = new Blob(audioChunks, { type: recorderMimeType });
+      const base64Audio = await blobToBase64(audioBlob);
+
+      statusText.textContent = "Uploading to server...";
+      
+      const response = await fetch(\`\${serverUrl}/api/meetings/upload-audio\`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userId: userId,
+          title: meetingTitle || \`Google Meet Companion — \${new Date().toLocaleTimeString()}\`,
+          platform: "google-meet",
+          template: "client",
+          base64Audio: base64Audio,
+          fileType: recorderMimeType
+        })
+      });
+
+      if (response.ok) {
+        statusText.textContent = "Minutes Sync Success!";
+        alert("Success! The meeting audio has been synchronized. You can now close this tab.");
+        window.close();
+      } else {
+        const errData = await response.json();
+        throw new Error(errData.error || "Failed server sync.");
+      }
+    } catch (uploadErr) {
+      console.error("Upload error:", uploadErr);
+      statusText.textContent = "Upload failed.";
+      alert(\`Failed synchronizing meeting: \${uploadErr.message}\`);
+      actionBtn.disabled = false;
+      actionBtn.textContent = "Retry Sync";
+    } finally {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+      }
+    }
+  }
 
   function blobToBase64(blob) {
     return new Promise((resolve, reject) => {
